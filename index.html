@@ -36,7 +36,7 @@ h1,h2,h3,h4,h5{font-family:Sora,system-ui,sans-serif;margin:0}
 .warn{background:rgba(255,138,31,.12);border:1px solid var(--orange);border-radius:12px;padding:10px 14px;color:#ffd7a8;font-size:14px;margin-top:14px}
 .btn{font:700 15px Sora,system-ui,sans-serif;letter-spacing:.05em;color:#fff;border:0;border-radius:14px;padding:14px 26px;cursor:pointer;background:linear-gradient(90deg,var(--pink),var(--orange));box-shadow:0 8px 26px rgba(255,45,149,.35);transition:.2s;min-height:48px}
 .btn:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(255,45,149,.5)}
-.btn.ghost{background:transparent;border:1px solid var(--line);box-shadow:none;color:var(--txt)}
+.btn.wa{display:inline-block;margin:6px;background:#25d366;box-shadow:none;text-decoration:none;text-align:center}.btn.ghost{background:transparent;border:1px solid var(--line);box-shadow:none;color:var(--txt)}
 .btn:disabled{opacity:.6;cursor:wait;transform:none}
 .link{background:none;border:0;color:var(--blue);cursor:pointer;font:inherit;text-decoration:underline;padding:6px 0}
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
@@ -286,6 +286,7 @@ function success(d){
  const bg=make("div","badges");[...sel].forEach((n,i)=>{const e=EV.find(x=>x.name===n);const s=make("span","badge",e.icon+" "+n);s.style.setProperty("--a",e.accent);s.style.animationDelay=(.4+i*.12)+"s";bg.appendChild(s)});w.appendChild(bg);
  w.append(make("p","reveal","Your journey into World Space Week 2026 has officially begun."),
   make("p","reveal",d.emailSent?"📩 Your confirmation and QR attendance pass have been sent to "+d.email+". Show the QR code at the entrance each day.":"We saved your registration. Your confirmation email will be sent to "+d.email+" soon."));
+ if(d.groups&&d.groups.length){const gb=make("div","reveal");gb.append(make("p",null,"💬 Join your WhatsApp groups for updates:"));d.groups.forEach(x=>{const l=make("a","btn wa","Join "+x.name+" group");l.href=x.link;l.target="_blank";l.rel="noopener";gb.appendChild(l)});w.appendChild(gb)}
  const rb=make("button","btn reveal","Return to mission control");rb.onclick=()=>location.reload();const rr=make("div","reveal");rr.appendChild(rb);w.appendChild(rr);
  c.appendChild(w);show(3);setTimeout(()=>warp=1,2600);
 }
