@@ -141,6 +141,8 @@ const API_URL = "https://script.google.com/macros/s/AKfycbyVJQoeUC7kMXT-EWav7j3n
 const GOOGLE_CLIENT_ID = "1025247194446-tonqd8e8bctgp0jmti75r36k6ntsa0u2.apps.googleusercontent.com";
 /* ========================================================================================== */
 
+/* Safety: never run inside someone else's page (clickjacking protection) */
+if(window.top!==window.self){document.body.textContent="";const fa=document.createElement("a");fa.href=location.href;fa.target="_top";fa.textContent="Open the World Space Week registration page";document.body.appendChild(fa);throw new Error("framed")}
 const $=id=>document.getElementById(id);
 const make=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 const READY=!/^PASTE/.test(API_URL)&&!/^PASTE/.test(GOOGLE_CLIENT_ID);
@@ -193,7 +195,7 @@ function buildForm(){
   const d=make("div","f"+(f.full?" full":""));
   const inp=f.t==="select"?`<select id="${f.k}">${f.c?CCOPT:'<option value=""></option>'+YS.map(o=>`<option>${o}</option>`).join("")}</select>`:`<input id="${f.k}" type="${f.t}" placeholder=" " autocomplete="${f.ac}"${f.ro?" readonly":""}${f.k==="phone"?' inputmode="numeric"':""}>`;
   d.innerHTML=`${inp}<label for="${f.k}">${f.l}</label><span class="ok" aria-hidden="true">✓</span><div class="msg" id="m_${f.k}"></div>`;g.appendChild(d);
-  const el=d.querySelector("input,select");f.el=el;
+  const el=d.querySelector("input,select");f.el=el;if(el.tagName==="INPUT")el.maxLength=({name:80,usn:20,phone:20,collegeEmail:120,dept:80})[f.k]||100;
   f.run=show=>{const ok=f.v(el.value);d.classList.toggle("good",ok&&!!el.value);d.classList.toggle("bad",!ok&&show);$("m_"+f.k).textContent=!ok&&show?"⚠ "+(typeof f.e==="function"?f.e():f.e):"";return ok};
   ["blur","change"].forEach(ev=>el.addEventListener(ev,()=>f.run(true)));el.addEventListener("input",()=>f.run(false));
  });
@@ -244,7 +246,7 @@ function openInfo(e){
  const meta=make("div","meta");[["DATE",e.date],["TEAM SIZE",e.team],["DURATION",e.duration],["VENUE",e.venue]].forEach(([k,v])=>{const d=make("div");d.append(make("b",null,k),document.createTextNode(v||"To be announced"));meta.appendChild(d)});m.appendChild(meta);
  sec(m,"ABOUT THE EVENT",e.about);sec(m,"OBJECTIVE",e.objective);sec(m,"RULES",e.rules,1);sec(m,"MATERIALS / WHAT TO BRING",e.materials,1);sec(m,"HOW YOU ARE JUDGED",e.judging,1);sec(m,"PRIZE",e.prize);
  m.appendChild(make("h5",null,"REFERENCE VIDEOS"));
- if(e.resources.length)e.resources.forEach(r=>{const a=make("a",null,"▶ "+r.name);a.href=r.url;a.target="_blank";a.rel="noopener";m.appendChild(a)});else m.appendChild(make("p","ph","No video for this event."));
+ const safeRes=e.resources.filter(r=>/^https?:\/\//i.test(r.url));if(safeRes.length)safeRes.forEach(r=>{const a=make("a",null,"▶ "+r.name);a.href=r.url;a.target="_blank";a.rel="noopener";m.appendChild(a)});else m.appendChild(make("p","ph","No video for this event."));
  sec(m,"STUDY MATERIAL",e.study,1);
  if(e.extra)sec(m,"ADDITIONAL INFORMATION",e.extra);
  const b=make("button","btn ghost","✕ CLOSE");b.style.marginTop="24px";b.onclick=closeInfo;m.appendChild(b);
@@ -267,16 +269,17 @@ $("go").onclick=()=>{let ok=true,first;FIELDS.forEach(f=>{if(!f.run(true)){ok=fa
  if(!EV.length){return loadEvents().then(()=>{render();summ();show(2)})}render();summ();show(2)};
 
 /* ---------- Submit ---------- */
+async function postJSON(p){const c=new AbortController(),t=setTimeout(()=>c.abort(),30000);try{const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p),signal:c.signal});return await r.json()}finally{clearTimeout(t)}}
 $("launch").onclick=async()=>{
  const er=$("err");er.textContent="";
  if(!sel.size){er.textContent="⚠ Please select at least one event.";return}
  const b=$("launch");b.disabled=true;b.textContent="Launching…";
  const p={action:"register",credential:user.cred,events:[...sel]};FIELDS.forEach(f=>p[f.k]=f.el.value.trim());
  try{
-  const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)});const d=await r.json();
+  const d=await postJSON(p);
   if(!d.ok){if(d.code==="AUTH"){user=null;drawLogin();show(0)}er.textContent="⚠ "+d.error;b.disabled=false;b.textContent="Launch registration 🚀";if(d.code==="AUTH")$("login").prepend(make("div","warn",d.error));return}
   success(d);
- }catch(x){er.textContent="⚠ Registration did not go through. Check your internet and try again.";b.disabled=false;b.textContent="Launch registration 🚀"}
+ }catch(x){er.textContent="⚠ Registration did not go through. Check your internet and try again. If it keeps failing, check your email first: you may already be registered.";b.disabled=false;b.textContent="Launch registration 🚀"}
 };
 function success(d){
  warp=40;const c=$("s3").firstChild;c.innerHTML="";const w=make("div","win");
@@ -286,7 +289,7 @@ function success(d){
  const bg=make("div","badges");[...sel].forEach((n,i)=>{const e=EV.find(x=>x.name===n);const s=make("span","badge",e.icon+" "+n);s.style.setProperty("--a",e.accent);s.style.animationDelay=(.4+i*.12)+"s";bg.appendChild(s)});w.appendChild(bg);
  w.append(make("p","reveal","Your journey into World Space Week 2026 has officially begun."),
   make("p","reveal",d.emailSent?"📩 Your confirmation and QR attendance pass have been sent to "+d.email+". Show the QR code at the entrance each day.":"We saved your registration. Your confirmation email will be sent to "+d.email+" soon."));
- if(d.groups&&d.groups.length){const gb=make("div","reveal");gb.append(make("p",null,"💬 Join your WhatsApp groups for updates:"));d.groups.forEach(x=>{const l=make("a","btn wa","Join "+x.name+" group");l.href=x.link;l.target="_blank";l.rel="noopener";gb.appendChild(l)});w.appendChild(gb)}
+ if(d.groups&&d.groups.length){const gb=make("div","reveal");gb.append(make("p",null,"💬 Join your WhatsApp groups for updates:"));d.groups.forEach(x=>{if(!/^https:\/\//i.test(x.link))return;const l=make("a","btn wa","Join "+x.name+" group");l.href=x.link;l.target="_blank";l.rel="noopener";gb.appendChild(l)});w.appendChild(gb)}
  const rb=make("button","btn reveal","Return to mission control");rb.onclick=()=>location.reload();const rr=make("div","reveal");rr.appendChild(rb);w.appendChild(rr);
  c.appendChild(w);show(3);setTimeout(()=>warp=1,2600);
 }
