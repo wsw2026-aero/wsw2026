@@ -208,19 +208,19 @@ function summ(){const s=$("sum");s.innerHTML="";s.appendChild(make("b",null,"You
  if(!sel.size){s.appendChild(make("div","ph","No events selected yet. Tap a card to select it."));return}
  const u=make("ul");[...sel].forEach(n=>u.appendChild(make("li",null,n)));s.appendChild(u)}
 function render(){
- const box=$("days");box.innerHTML="";
+ const box=$("days");box.innerHTML="";if(EV.length&&EV.every(e=>e.closed))box.appendChild(make("div","note","Registration is now closed for all events."));
  DAYS.filter(d=>EV.some(e=>e.day===d.n)).forEach(d=>{
   const h=make("div","day");h.append(make("h3",null,"DAY 0"+d.n),make("span",null,d.label));box.appendChild(h);
   const g=make("div","cards");box.appendChild(g);
   EV.filter(e=>e.day===d.n).forEach(e=>{
-   const on=sel.has(e.name),blocked=!!e.exclusive&&sel.has(e.exclusive);
-   const c=make("div","ev"+(on?" on":"")+(blocked?" off":""));c.style.setProperty("--a",e.accent);
-   c.tabIndex=blocked?-1:0;c.setAttribute("role","checkbox");c.setAttribute("aria-checked",on);c.setAttribute("aria-disabled",blocked);
+   const on=sel.has(e.name),blocked=!!e.exclusive&&sel.has(e.exclusive),dead=blocked||!!e.closed;
+   const c=make("div","ev"+(on?" on":"")+(dead?" off":""));c.style.setProperty("--a",e.accent);
+   c.tabIndex=dead?-1:0;c.setAttribute("role","checkbox");c.setAttribute("aria-checked",on);c.setAttribute("aria-disabled",dead);
    c.append(make("div","ic",e.icon),make("h4",null,e.name),make("div","dt",e.date+" · DAY 0"+e.day),make("p",null,e.tagline||"Details will be announced."));
-   if(e.exclusive)c.appendChild(make("div","rule",blocked?"Unavailable: you chose "+e.exclusive:"Choose either this or "+e.exclusive));
+   if(e.closed)c.appendChild(make("div","rule","Registration closed"));else if(e.exclusive)c.appendChild(make("div","rule",blocked?"Unavailable: you chose "+e.exclusive:"Choose either this or "+e.exclusive));
    const f=make("div","foot"),ib=make("button","info","ⓘ INFO");ib.type="button";ib.onclick=ev=>{ev.stopPropagation();openInfo(e)};
-   const s=make("span","sel");s.append(make("i",null,on?"✓":""),document.createTextNode(on?"SELECTED":"SELECT"));f.append(ib,s);c.appendChild(f);
-   const tog=()=>{if(blocked)return;on?sel.delete(e.name):sel.add(e.name);render();summ();const n=[...document.querySelectorAll(".ev")].find(x=>x.querySelector("h4").textContent===e.name);n&&n.focus()};
+   const s=make("span","sel");s.append(make("i",null,on?"✓":""),document.createTextNode(e.closed?"CLOSED":(on?"SELECTED":"SELECT")));f.append(ib,s);c.appendChild(f);
+   const tog=()=>{if(dead)return;on?sel.delete(e.name):sel.add(e.name);render();summ();const n=[...document.querySelectorAll(".ev")].find(x=>x.querySelector("h4").textContent===e.name);n&&n.focus()};
    c.onclick=tog;c.onkeydown=ev=>{if(ev.target===c&&(ev.key===" "||ev.key==="Enter")){ev.preventDefault();tog()}};
    g.appendChild(c);
   });
@@ -229,13 +229,14 @@ function render(){
 async function loadEvents(){
  if(!READY)return;
  try{const r=await fetch(API_URL+"?a=events");const d=await r.json();if(!d.ok)throw 0;EV=d.events;DAYS=d.days;YS=d.yearSem;
-  EV.forEach(e=>{if(e.auto)sel.add(e.name)})}
- catch(x){$("loadev").textContent="Could not load the events. Please check your internet and refresh the page."}
+  EV.forEach(e=>{if(e.auto&&!e.closed)sel.add(e.name)});sel=new Set([...sel].filter(n=>{const e=EV.find(x=>x.name===n);return e&&!e.closed}))}
+ catch(x){const l=$("loadev");if(l)l.textContent="Could not load the events. Please check your internet and refresh the page."}
 }
 
 /* ---------- Info pop-up ---------- */
 let lastFocus;
 function sec(m,title,items,isList){
+ if(typeof items==="string"&&items.indexOf("\n")>-1){items=items.split("\n").map(s=>s.trim()).filter(Boolean);isList=1}
  m.appendChild(make("h5",null,title));
  if(!items||(Array.isArray(items)&&!items.length)||items===""){m.appendChild(make("p","ph","To be announced."));return}
  if(isList){const u=make("ul");items.forEach(x=>u.appendChild(make("li",null,x)));m.appendChild(u)}else m.appendChild(make("p",null,items))
@@ -277,7 +278,7 @@ $("launch").onclick=async()=>{
  const p={action:"register",credential:user.cred,events:[...sel]};FIELDS.forEach(f=>p[f.k]=f.el.value.trim());
  try{
   const d=await postJSON(p);
-  if(!d.ok){if(d.code==="AUTH"){user=null;drawLogin();show(0)}er.textContent="⚠ "+d.error;b.disabled=false;b.textContent="Launch registration 🚀";if(d.code==="AUTH")$("login").prepend(make("div","warn",d.error));return}
+  if(!d.ok){if(d.code==="CLOSED"){await loadEvents();render();summ()}if(d.code==="AUTH"){user=null;drawLogin();show(0)}er.textContent="⚠ "+d.error;b.disabled=false;b.textContent="Launch registration 🚀";if(d.code==="AUTH")$("login").prepend(make("div","warn",d.error));return}
   success(d);
  }catch(x){er.textContent="⚠ Registration did not go through. Check your internet and try again. If it keeps failing, check your email first: you may already be registered.";b.disabled=false;b.textContent="Launch registration 🚀"}
 };
