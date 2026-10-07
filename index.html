@@ -146,7 +146,7 @@ if(window.top!==window.self){document.body.textContent="";const fa=document.crea
 const $=id=>document.getElementById(id);
 const make=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 const READY=!/^PASTE/.test(API_URL)&&!/^PASTE/.test(GOOGLE_CLIENT_ID);
-let user=null,EV=[],DAYS=[],YS=[],sel=new Set(),verified=false;
+let NOTICE="",user=null,EV=[],DAYS=[],YS=[],sel=new Set(),verified=false;
 
 /* ---------- Google sign-in ---------- */
 function jwt(t){try{const b=t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");return JSON.parse(decodeURIComponent(atob(b).split("").map(c=>"%"+("00"+c.charCodeAt(0).toString(16)).slice(-2)).join("")))}catch(e){return null}}
@@ -208,7 +208,7 @@ function summ(){const s=$("sum");s.innerHTML="";s.appendChild(make("b",null,"You
  if(!sel.size){s.appendChild(make("div","ph","No events selected yet. Tap a card to select it."));return}
  const u=make("ul");[...sel].forEach(n=>u.appendChild(make("li",null,n)));s.appendChild(u)}
 function render(){
- const box=$("days");box.innerHTML="";if(EV.length&&EV.every(e=>e.closed))box.appendChild(make("div","note","Registration is now closed for all events."));
+ const box=$("days");box.innerHTML="";if(NOTICE)box.appendChild(make("div","note",NOTICE));if(EV.length&&EV.every(e=>e.closed))box.appendChild(make("div","note","Registration is now closed for all events."));
  DAYS.filter(d=>EV.some(e=>e.day===d.n)).forEach(d=>{
   const h=make("div","day");h.append(make("h3",null,"DAY 0"+d.n),make("span",null,d.label));box.appendChild(h);
   const g=make("div","cards");box.appendChild(g);
@@ -228,7 +228,7 @@ function render(){
 }
 async function loadEvents(){
  if(!READY)return;
- try{const r=await fetch(API_URL+"?a=events");const d=await r.json();if(!d.ok)throw 0;EV=d.events;DAYS=d.days;YS=d.yearSem;
+ try{const r=await fetch(API_URL+"?a=events");const d=await r.json();if(!d.ok)throw 0;EV=d.events;DAYS=d.days;NOTICE=d.notice||"";YS=d.yearSem;
   EV.forEach(e=>{if(e.auto&&!e.closed)sel.add(e.name)});sel=new Set([...sel].filter(n=>{const e=EV.find(x=>x.name===n);return e&&!e.closed}))}
  catch(x){const l=$("loadev");if(l)l.textContent="Could not load the events. Please check your internet and refresh the page."}
 }
